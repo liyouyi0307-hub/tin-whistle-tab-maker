@@ -62,7 +62,7 @@ Chromatic exercise in the same mode:
 | `1'` / `1.` | Upper / lower octave |
 | `3·` | Dotted note |
 | `0` / `2---` | Rest / duration extension |
-| `|` | Bar separator |
+| `\|` | Bar separator |
 
 Accidentals apply only to the immediately following note. A local numbering-mode change keeps the written numbers and recalculates sounding pitches and fingerings; it does not change the physical key of the whistle.
 
