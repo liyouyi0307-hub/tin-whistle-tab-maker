@@ -1,0 +1,1561 @@
+<!DOCTYPE html>
+<!--
+Based on TwinkleLee/tin-whistle-sheet-generator:
+https://gitee.com/twinklelee/tin-whistle-sheet-generator
+D whistle enhancements and modifications: liyouyi0307-hub.
+MIT License. See LICENSE and UPSTREAM.md for attribution and provenance.
+-->
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tin Whistle Tab Maker · 哨笛简谱编辑器</title>
+    <meta name="description" content="哨笛简谱与指法编辑器，支持 D 调半音、个人叉指、局部八度、分段筒音和单音微调，可离线使用并打印。">
+    <style>
+        @media print {
+            .no-print {
+                display: none !important;
+            }
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Microsoft Yahei', sans-serif;
+        }
+
+        body {
+            padding: 20px;
+            background-color: #f5f7fa;
+            color: #333;
+        }
+
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            text-align: center;
+            color: #2c3e50;
+            margin-bottom: 30px;
+        }
+
+        .input-section {
+            margin-bottom: 25px;
+        }
+
+        label {
+            display: block;
+            font-weight: bold;
+            margin-bottom: 8px;
+            color: #34495e;
+        }
+
+        textarea {
+            width: 100%;
+            height: 150px;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 16px;
+            resize: vertical;
+            font-family: monospace;
+        }
+
+        select {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            margin-right: 10px;
+            font-size: 16px;
+        }
+
+        button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        button:hover {
+            background-color: #2980b9;
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .output-section {
+            margin-top: 30px;
+        }
+
+        /* 核心修改：竖向笛谱容器 */
+        .whistle-sheet {
+            /* background-color: #f9f9f9; */
+            padding: 20px;
+            border-radius: 6px;
+            min-height: 300px;
+            border: 1px solid #eee;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 15px;
+            overflow-x: auto;
+            align-items: flex-start;
+            margin-top: 10px;
+        }
+
+        /* 单个音符竖向展示 */
+        .note {}
+
+
+
+        /* 无对应指法的样式 */
+        .no-mapping {
+            background-color: #ffebee;
+            padding: 10px;
+            border-radius: 4px;
+            font-size: 14px;
+            color: #e74c3c;
+        }
+
+        /* 简谱音符标注 */
+        .note-label {
+            text-align: center;
+            font-size: 22px;
+            font-weight: bold;
+            margin-bottom: 5px;
+            color: #2c3e50;
+        }
+
+        .note-holes {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 8px;
+            margin: 10px 5px;
+            border-radius: 4px;
+            /* background-color: #e3f2fd; */
+            width: 20px;
+            box-sizing: border-box;
+            border: 1px solid #000;
+        }
+
+        /* 指法孔竖向排列 */
+        .hole {
+            border-radius: 50%;
+            box-sizing: border-box;
+            margin: 3px 0;
+            font-size: 18px;
+        }
+
+        .hole_0,
+        .hole_2 {
+            width: 16px;
+            height: 16px;
+            border: 1px solid #333;
+        }
+
+        .hole_1 {
+            border: 8px solid #333;
+        }
+
+        .hole_2 {
+            background: linear-gradient(90deg, black 50%, transparent 50%);
+        }
+
+        /* 特殊符号样式 */
+        .special-symbol {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            font-weight: bold;
+            color: #666;
+        }
+
+        .instructions {
+            background-color: #e8f5e9;
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+
+        .error {
+            color: #e74c3c;
+            margin-top: 10px;
+            font-weight: bold;
+        }
+
+        .title-input {
+            font-size: 32px;
+            display: block;
+            border: none !important;
+            margin: 0 auto;
+            text-align: center;
+            width: 100%;
+        }
+
+        [hidden] { display: none !important; }
+        .chromatic-tools { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+        .chromatic-tools button { padding: 7px 12px; font-size: 14px; }
+        .octave-tools { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 10px; }
+        .octave-tools button { padding: 7px 12px; font-size: 14px; }
+        .octave-hint { font-size: 12px; color: #555; }
+        #octave-status { margin-top: 6px; font-size: 13px; line-height: 1.6; }
+        .local-basic-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 10px; }
+        .local-basic-tools label { margin: 0; font-size: 14px; }
+        .local-basic-tools select { margin: 0; font-size: 14px; }
+        .local-basic-tools button { padding: 7px 12px; font-size: 14px; }
+        #local-basic-status, #score-selection-status { font-size: 13px; line-height: 1.8; }
+        .score-toolbar { position: sticky; top: 8px; z-index: 2; padding: 12px; margin-top: 12px; background: #eef5fc; border: 1px solid #ccddec; border-radius: 6px; }
+        .score-toolbar .local-basic-tools { margin-top: 6px; }
+        .score-hint { font-size: 13px; line-height: 1.8; }
+        .score-range-label { display: inline-flex; gap: 6px; align-items: center; font-weight: normal; }
+        .score-note-editor { margin-top: 8px; padding-top: 8px; border-top: 1px solid #ccddec; }
+        .score-note-editor input { width: 110px; padding: 7px 10px; border: 1px solid #2980b9; border-radius: 5px; font: 20px monospace; }
+        #score-note-status { font-size: 13px; line-height: 1.8; }
+        .score-token { position: relative; padding: 4px; border: 2px solid transparent; border-radius: 6px; cursor: pointer; user-select: none; }
+        .score-token.selected { background: #e3f2fd; border-color: #2980b9; }
+        .score-token:focus-visible { outline: 2px solid #20649a; outline-offset: 2px; }
+        .tube-label { display: block; height: 22px; line-height: 18px; margin-bottom: 5px; padding: 2px 4px; border-radius: 4px; background: #edf4ea; color: #315e2f; font-size: 12px; white-space: nowrap; }
+        .tube-label:empty { visibility: hidden; }
+        .chromatic-help { margin-bottom: 20px; padding: 14px; background: #eef5fc; border-radius: 6px; line-height: 1.8; font-size: 14px; }
+        .chromatic-help code { font-family: monospace; }
+        .chromatic-help a { color: #20649a; }
+        .fingering-reference { margin-top: 10px; }
+        .fingering-reference summary { cursor: pointer; font-weight: bold; }
+        .reference-sheet { display: flex; flex-wrap: wrap; gap: 16px; padding: 12px 0; }
+        .d-note { min-width: 44px; text-align: center; break-inside: avoid; }
+        .d-note .note-holes { width: 30px; padding: 6px; margin: 8px auto; }
+        .note-pitch { font-size: 11px; color: #555; white-space: nowrap; }
+        .note-breath { height: 18px; font-size: 16px; line-height: 18px; font-weight: bold; }
+        .d-hole { display: block; width: 16px; height: 16px; flex-shrink: 0; }
+        .sheet-legend { margin-top: 10px; line-height: 1.8; font-size: 13px; }
+        .legend-hole { display: inline-block; vertical-align: middle; margin: 0 4px; }
+        .no-mapping { overflow-wrap: anywhere; }
+        .fingering-settings { margin: 14px 0 20px; padding: 14px; border: 1px solid #ccddec; border-radius: 6px; line-height: 1.8; }
+        .fingering-settings summary { cursor: pointer; font-weight: bold; }
+        .settings-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 270px), 1fr)); gap: 12px; margin: 12px 0; }
+        .setting-card { display: flex; justify-content: space-between; gap: 12px; padding: 12px; border: 1px solid #ddd; border-radius: 6px; }
+        .setting-card .setting-body { flex: 1; min-width: 0; }
+        .setting-card label { margin-bottom: 2px; }
+        .setting-card select { width: 100%; font-size: 14px; margin: 4px 0; padding: 6px; }
+        .setting-hint { font-size: 12px; color: #555; }
+        .setting-hint a { color: #20649a; }
+        .setting-source { margin-top: 4px; }
+        .custom-holes { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+        .custom-holes button { padding: 4px 6px; color: #333; background: #f0f3f6; font-size: 12px; }
+        .custom-holes svg { margin: 2px auto; }
+        .settings-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+        .settings-actions button { font-size: 14px; padding: 8px 12px; }
+        #settings-status { font-size: 13px; }
+        @media print {
+            .d-hole { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+            .whistle-sheet { overflow: visible; }
+            .score-token { padding: 0; border: none; }
+            .score-token.selected { background: transparent; }
+            .score-token:focus-visible { outline: none; }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1 class="no-print">Tin Whistle Tab Maker</h1>
+
+        <div class="instructions no-print">
+            <strong>使用说明：</strong><br>
+            1. 输入标准简谱格式（例如：1 2 3 4 5 6 7 1' 或 5·3 2·1 | 2- - -）<br>
+            2. 支持的音符：1(do)、2(re)、3(mi)、4(fa)、5(sol)、6(la)、7(si)<br>
+            3. 支持高音（1'）、低音（1.）、附点（5·）、延长线（-）、小节线（|）<br>
+            4. 选择哨笛调式（默认D调筒音1）<br>
+        </div>
+
+        <div class="input-section no-print">
+            <label for="jianpu-input">请输入简谱：</label>
+            <textarea id="jianpu-input" placeholder="例如：5 3 2 1 | 2 3 5 5 | 5·3 2·1 | 2 - -"></textarea>
+            <div class="octave-tools">
+                <button type="button" id="octave-up">整谱升八度 ↑8</button>
+                <button type="button" id="octave-down">整谱降八度 ↓8</button>
+                <span class="octave-hint">调整整份简谱，立即更新笛谱；反向点击可还原音高。超出哨笛音域的音会显示提示。</span>
+            </div>
+            <div class="octave-tools">
+                <button type="button" id="selected-octave-up">选中部分升八度 ↑8</button>
+                <button type="button" id="selected-octave-down">选中部分降八度 ↓8</button>
+                <span class="octave-hint">在输入框或下方谱面选中一段，再点局部按钮。若只选到音符的一部分，会包含该音的完整升降号、八度和附点。</span>
+            </div>
+            <div id="octave-status" role="status" aria-live="polite"></div>
+            <div id="local-basic-tools" class="local-basic-tools">
+                <label for="selected-basic">所选段筒音</label>
+                <select id="selected-basic">
+                    <option value="5">筒音 5</option><option value="1">筒音 1</option>
+                    <option value="3">筒音 3</option><option value="4">筒音 4</option>
+                    <option value="default">跟随整谱筒音</option>
+                </select>
+                <button type="button" id="apply-selected-basic">更改选中段筒音</button>
+                <span class="octave-hint">保留简谱数字，按新筒音计算指法和实际音高；局部设置随曲谱保存。</span>
+            </div>
+            <div id="local-basic-status" role="status" aria-live="polite"></div>
+            <div id="d-chromatic-tools" class="chromatic-tools">
+                <button type="button" id="insert-sharp">插入升号 ♯</button>
+                <button type="button" id="insert-flat">插入降号 ♭</button>
+                <button type="button" id="chromatic-example">插入半音示例</button>
+            </div>
+        </div>
+
+        <div class="controls">
+            <select id="whistle-key">
+                <option value="D">D调哨笛</option>
+                <option value="C">C调哨笛</option>
+                <option value="G">G调哨笛</option>
+                <option value="F">F调哨笛</option>
+            </select>
+
+            <select id="whistle-basic">
+                <option value="1">筒音1</option>
+                <option id="d-basic-3" value="3">筒音3</option>
+                <option id="d-basic-4" value="4">筒音4</option>
+                <option value="5">筒音5</option>
+            </select>
+
+            <button id="generate-btn" class="no-print">生成笛谱</button>
+            <button id="clear-btn" class="no-print">清空内容</button>
+            <button id="save-btn" class="no-print">保存笛谱</button>
+            <button id="read-btn" class="no-print">读取笛谱</button>
+        </div>
+
+        <div id="d-chromatic-help" class="chromatic-help no-print">
+            <strong>D 调半音输入：</strong>在音符前写 <code>#</code> / <code>♯</code> 升半音，写 <code>b</code> / <code>♭</code> 降半音，例如 <code>#1 b3 #4 #5 b7</code>。支持 <code>#1'</code>、<code>b7.</code> 等八度标记。<br>
+            升降号相对当前简谱调式计算，只作用于紧随其后的一个音。筒音 1 时 <code>1 = D</code>、<code>3 = F♯</code>，所以 <code>b3 = F</code>；筒音 5 时 <code>5. = D</code>、<code>1 = G</code>。<br>
+            <span id="d-basic-help"></span><br>
+            半黑圆表示半孔：从全按逐渐移开手指，按音准调整开孔量，并非必须精确露出一半。支持常用的两个八度及顶端 D；超出范围会提示。<br>
+            指法依据：<a href="https://www.wfg.woodwind.org/tinwhistle/tw_bas_1.html" target="_blank" rel="noopener noreferrer">Woodwind Fingering Guide · 第一八度</a>、<a href="https://www.wfg.woodwind.org/tinwhistle/tw_bas_2.html" target="_blank" rel="noopener noreferrer">第二八度</a>。不同哨笛的半孔开度、叉指和气息需要微调。
+            <details class="fingering-reference">
+                <summary>查看五个常用半音的洞洞谱（低 / 高八度）</summary>
+                <div id="d-fingering-reference" class="reference-sheet"></div>
+                此处显示当前已应用的指法。可在下方设置里选择替代指法。
+            </details>
+        </div>
+
+        <details id="d-fingering-settings" class="fingering-settings no-print">
+            <summary>D 调指法设置（含筒音 3 / 4 的替代指法）</summary>
+            <p>低、高八度分别选择，按实际音高共用设置（例如 #1 和 b2 共用 D♯ / E♭ 指法）。先预览，再点击“应用指法设置”。</p>
+            <p id="d-settings-mode-hint"></p>
+            <p id="d-fork-coverage" class="setting-hint"></p>
+            <p class="setting-hint">每个音的菜单列出半孔、已查到的叉指预设和自定义；选中后显示来源及适用说明。“需试音”的预设来自特定哨笛或演奏者经验，可能需要调整气息，也可能不适合你的哨笛。孔位 1 至 6 从吹嘴到笛尾排列。</p>
+            <div class="settings-actions">
+                <button id="prefer-forks" type="button">一键预览可用叉指</button>
+                <button id="prefer-half-holes" type="button">一键预览全部半孔</button>
+                <span class="setting-hint">叉指预览保留已选的叉指和自定义；没有替代的音保留半孔。点击下方“应用指法设置”后生效。</span>
+            </div>
+            <div id="d-settings-grid" class="settings-grid"></div>
+            <div class="settings-actions">
+                <button id="apply-fingerings" type="button">应用指法设置</button>
+                <button id="reset-fingerings" type="button">重置预览为默认</button>
+                <span id="settings-status" role="status" aria-live="polite">设置会保存在此浏览器，并随曲谱 JSON 保存。</span>
+            </div>
+        </details>
+
+        <div id="error-message" class="error"></div>
+
+        <div class="output-section">
+            <input type="text" id="title-input" class="title-input" placeholder="点击此处输入标题">
+            <div id="score-toolbar" class="score-toolbar no-print">
+                <p class="score-hint">双击音符直接微调，输入 1、2、7. 等，指法实时更新。单击选中；拖动或 Shift 点击末音可选段。触屏可用“编辑所选音符”或“点首尾选段”。</p>
+                <div class="local-basic-tools">
+                    <label class="score-range-label"><input id="score-range-mode" type="checkbox">点首尾选段</label>
+                    <button type="button" id="clear-score-selection">取消选区</button>
+                    <button type="button" id="edit-score-note">编辑所选音符</button>
+                    <button type="button" id="score-octave-up">所选音符升八度 ↑8</button>
+                    <button type="button" id="score-octave-down">所选音符降八度 ↓8</button>
+                </div>
+                <div id="score-basic-tools" class="local-basic-tools">
+                    <label for="score-basic">所选段筒音</label>
+                    <select id="score-basic">
+                        <option value="5">筒音 5</option><option value="1">筒音 1</option>
+                        <option value="3">筒音 3</option><option value="4">筒音 4</option>
+                        <option value="default">跟随整谱筒音</option>
+                    </select>
+                    <button type="button" id="apply-score-basic">应用所选筒音</button>
+                </div>
+                <p id="score-selection-status" role="status" aria-live="polite">尚未选中谱面音符。</p>
+                <div id="score-note-editor" class="score-note-editor" role="group" aria-label="谱面单音微调" hidden>
+                    <div class="local-basic-tools">
+                        <label for="score-note-input">微调此音</label>
+                        <input id="score-note-input" type="text" maxlength="24" autocomplete="off" spellcheck="false" placeholder="例如 1、7.、#4'">
+                        <button type="button" id="finish-score-note">完成微调</button>
+                        <button type="button" id="cancel-score-note">撤销本次修改</button>
+                        <span class="score-hint">有效输入立即同步；Enter 完成，Esc 撤销。0 表示休止符。</span>
+                    </div>
+                    <p id="score-note-status" role="status" aria-live="polite"></p>
+                </div>
+            </div>
+            <div id="whistle-output" class="whistle-sheet" aria-label="可选择的笛谱"></div>
+            <div id="d-sheet-legend" class="sheet-legend"></div>
+        </div>
+
+        <input type="file" id="fileInput" accept=".json" style="display: none;">
+    </div>
+
+    <script>
+        // 哨笛音高映射表（D调为例）
+        const whistleMapping = {
+            'D': {
+
+                '1': {
+                    '1': '111111',
+                    '2': '111110',
+                    '3': '111100',
+                    '4': '111000',
+                    '5': '110000',
+                    '6': '100000',
+                    '7': '000000',
+                    '1\'': '011111',
+                    '2\'': '111110',
+                    '3\'': '111100',
+                    '4\'': '111000',
+                    '5\'': '110000',
+                    '6\'': '100000',
+                    '7\'': '000000',
+                    '1\'\'': '011111',
+                },
+
+                '5': {
+                    '5.': '111111',
+                    '6.': '111110',
+                    '7.': '111100',
+                    '1': '111000',
+                    '2': '110000',
+                    '3': '100000',
+                    '4': '011000',
+                    '5': '011111',
+                    '6': '111110',
+                    '7': '111100',
+                    '1\'': '111000',
+                    '2\'': '110000',
+                    '3\'': '100000',
+                    '4\'': '011110',
+                    '5\'': '011111',
+                }
+
+            },
+        };
+
+        // DOM元素获取
+        const jianpuInput = document.getElementById('jianpu-input');
+        const titleInput = document.getElementById('title-input');
+        const whistleKey = document.getElementById('whistle-key');
+        const whistleBasic = document.getElementById('whistle-basic');
+        const generateBtn = document.getElementById('generate-btn');
+        const saveBtn = document.getElementById('save-btn');
+        const readBtn = document.getElementById('read-btn');
+        const fileInput = document.getElementById('fileInput');
+        const clearBtn = document.getElementById('clear-btn');
+        const whistleOutput = document.getElementById('whistle-output');
+        const errorMessage = document.getElementById('error-message');
+
+        // MIDI 音高按高音 D 哨笛标注；Low D 哨笛的实音整体低一个八度。
+        // 半孔：Woodwind Fingering Guide 第一、第二八度。
+        // 低 C 叉指：Grey Larsen, Fingering Chart with Half-Hole Fingerings, p.180。
+        const dScaleSteps = [0, 2, 4, 5, 7, 9, 11];
+        // 筒音 3 / 4 / 5 将全按 D4 分别记作低音 3 / 4 / 5。
+        // tonic 是中音 1 的实音，不改变哨笛本身的最低音。
+        const dBasicModes = {
+            '1': { tonic: 62, lowest: '1' },
+            '3': { tonic: 70, lowest: '3.' },
+            '4': { tonic: 69, lowest: '4.' },
+            '5': { tonic: 67, lowest: '5.' }
+        };
+        const dPatterns = ['111111', '111112', '111110', '111120', '111100', '111000',
+            '112000', '110000', '120000', '100000', '200000', '000000'];
+        const dPitchNames = ['C', 'C♯', 'D', 'D♯', 'E', 'F', 'F♯', 'G', 'G♯', 'A', 'B♭', 'B'];
+        const halfHoleNames = ['全开', '全按', '半孔'];
+        const chromaticPitches = [63, 65, 68, 70, 72, 75, 77, 80, 82, 84];
+        let dFingeringSettings = {};
+        let draftDFingeringSettings = {};
+        // 局部筒音按完整音符的原文位置保存；直接编辑时只保留仍能准确对应的设置。
+        let dNoteModes = [];
+        let modeText = '';
+        let renderedJianpuText = '';
+        let scoreSelection = null;
+        let selectionSource = 'input';
+        let scoreAnchor = null;
+        let scoreDragging = false;
+        let pendingJianpuEdit = null;
+        let scoreNoteEdit = null;
+
+        function escapeHtml(value) {
+            return String(value).replace(/[&<>"']/g, character => ({
+                '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+            }[character]));
+        }
+
+        function getDPitchName(pitch) {
+            return dPitchNames[pitch % 12] + (Math.floor(pitch / 12) - 1);
+        }
+
+        function getDBasicMode(basic) {
+            if (!Object.hasOwn(dBasicModes, basic)) throw new Error('D 调筒音设置无效');
+            return dBasicModes[basic];
+        }
+
+        // 将实际音高转为当前筒音的简谱，供设置预览和半音练习共用。
+        function formatDJianpuPitch(pitch, basic) {
+            const relative = pitch - getDBasicMode(basic).tonic;
+            const octave = Math.floor(relative / 12);
+            const step = ((relative % 12) + 12) % 12;
+            let degree = dScaleSteps.indexOf(step);
+            let accidental = '';
+            if (degree === -1) {
+                if (step === 3 || step === 10) {
+                    degree = dScaleSteps.indexOf(step + 1);
+                    accidental = 'b';
+                } else {
+                    degree = dScaleSteps.indexOf(step - 1);
+                    accidental = '#';
+                }
+            }
+            return accidental + (degree + 1) + (octave < 0 ? '.'.repeat(-octave) : "'".repeat(octave));
+        }
+
+        function getDChromaticExample(basic) {
+            const octave = start => Array.from({ length: 13 }, (_, index) => formatDJianpuPitch(start + index, basic)).join(' ');
+            return octave(62) + ' | ' + octave(74);
+        }
+
+        const dFingeringSources = {
+            wfgLow: { label: 'Woodwind Fingering Guide · 第一八度', url: 'https://www.wfg.woodwind.org/tinwhistle/tw_bas_1.html' },
+            wfgHigh: { label: 'Woodwind Fingering Guide · 第二八度', url: 'https://www.wfg.woodwind.org/tinwhistle/tw_bas_2.html' },
+            larsen: { label: 'Grey Larsen · 指法图第 180 页', url: 'https://greylarsen.com/FreeDownloads/Fingering_Chart_with_Half-Hole_Fingerings.pdf' },
+            steve: { label: 'Brother Steve · 指法教学', url: 'https://www.rogermillington.com/siamsa/brosteve/notlifting.html' },
+            steveAsk: { label: 'Brother Steve · 高八度指法答疑', url: 'https://www.rogermillington.com/siamsa/brosteve/ask.html' },
+            combinations: { label: 'Chiff & Fipple · 演奏者叉指讨论', url: 'https://www.chiffandfipple.com/t/cross-fingering-combinations/53747' },
+            gSharp: { label: 'Chiff & Fipple · G♯ 指法实测讨论', url: 'https://www.chiffandfipple.com/t/fingering-for-g-on-a-d-whistle/99772' },
+            bFlat: { label: 'tinwhistle.de · Susa 的 B♭ 指法说明', url: 'https://forum.tinwhistle.de/viewtopic.php?t=623' },
+            lonnie: { label: 'Lonnie Ezell · 交互指法图', url: 'https://lonnieezell.github.io/whistle-fingering-chart/' },
+            scott: { label: 'Scott Schade · 两个八度指法图（2025-09-13）', url: 'https://lowdwhistle.com/project/d-whistle-fingering-chart-two-full-octaves/' },
+            classics: { label: 'Chiff & Fipple · 叉指与八度实用讨论', url: 'https://www.chiffandfipple.com/t/cross-fingerings-on-the-whistle/15444' },
+            guido: { label: 'Guido Gonzato · Low-Tech 制笛手册第 4 页', url: 'https://www.guidogonzato.it/whistle/LowTechWhistle.pdf' }
+        };
+
+        // 按实际音高列出预设，不将低八度叉指直接复制到高八度。
+        // legacy ID 保持不变，让旧曲谱和已保存的偏好仍可读取。
+        const dForkPresets = {
+            68: [{ id: 'legacy', pattern: '110111', source: 'gSharp', trial: true,
+                alsoSources: ['guido'],
+                hint: '低八度 G♯。演奏者报告可用于部分 Goldie 等哨笛；另有哨笛无法得到可用音准。保留原版孔位。' }],
+            70: [
+                { id: 'cross134', pattern: '101100', source: 'bFlat', trial: true,
+                    hint: '低八度 B♭ 叉指之一。资料按哨笛结构给出三种下手闭孔组合，请试音选择。' },
+                { id: 'cross1345', pattern: '101110', source: 'bFlat', trial: true,
+                    alsoSources: ['guido'],
+                    hint: '低八度 B♭ 叉指之一；比按 1、3、4 孔多按第 5 孔，以实际音准决定。' },
+                { id: 'cross13456', pattern: '101111', source: 'bFlat', trial: true,
+                    hint: '低八度 B♭ 叉指之一，下手三孔全按；是否合适取决于哨笛结构和气息。' }
+            ],
+            72: [
+                { id: 'cross23', pattern: '011000', source: 'larsen', hint: '低八度 C 的常用单手叉指；不同哨笛仍需校准气息。' },
+                { id: 'cross256', pattern: '010011', source: 'larsen', hint: 'Grey Larsen 列出的低八度 C 替代指法。' },
+                { id: 'cross2456', pattern: '010111', source: 'larsen', hint: 'Grey Larsen 列出的低八度 C 替代指法。' },
+                { id: 'cross2346', pattern: '011101', source: 'steve', trial: true,
+                    hint: '低八度 C 的双手叉指（piper’s C）。教师用于 Generation / Clarke 类哨笛；部分较响的现代哨笛会偏低。' },
+                { id: 'cross236', pattern: '011001', source: 'combinations', trial: true,
+                    hint: '演奏者列出的低八度 C 常用叉指变体，保留第 6 孔闭合。' },
+                { id: 'cross2', pattern: '010000', source: 'scott', trial: true,
+                    hint: '低八度 C。Scott 的第一八度替代图列出只按第 2 孔；与高八度同孔位仍须分别试音，不保证适合所有哨笛。' },
+                { id: 'cross234', pattern: '011100', source: 'scott', trial: true,
+                    hint: '低八度 C。Scott 的第一八度替代图列出按 2、3、4 孔；请用调音器检查音准。' }
+            ],
+            77: [
+                { id: 'cross12356', pattern: '111011', source: 'combinations', trial: true,
+                    hint: '仅高八度 F。演奏者 MTGuru 提供的试验指法，只在部分哨笛上有效；不适用时改用半孔。' },
+                { id: 'cross12346', pattern: '111101', source: 'combinations', trial: true,
+                    hint: '仅高八度 F。另一种演奏者试验叉指，不能保证普通 D 哨笛都能吹准。' }
+            ],
+            80: [
+                { id: 'cross1245', pattern: '110110', source: 'steveAsk', trial: true,
+                    hint: '仅高八度 G♯。Brother Steve 提供的可尝试叉指；也有哨笛在此八度必须使用半孔。' },
+                { id: 'cross1246', pattern: '110101', source: 'combinations', trial: true,
+                    alsoSources: ['guido'],
+                    hint: '仅高八度 G♯ / A♭。MTGuru 提供的另一种试验叉指，只在部分哨笛上有效。' }
+            ],
+            82: [
+                { id: 'cross13', pattern: '101000', source: 'lonnie', trial: true,
+                    alsoSources: ['guido'],
+                    hint: '仅高八度 B♭。Lonnie Ezell 图表和 Guido 的 Low-Tech 手册均列出此孔位；Guido 的结论针对其 PVC 哨笛，其他哨笛仍需单独试音。' },
+                { id: 'cross12456', pattern: '110111', source: 'classics', trial: true,
+                    hint: '仅高八度 B♭。演奏者 chas 报告此孔位在多支哨笛的上八度有效；同孔位在低八度可能是 G♯，不可直接跨八度套用。' }
+            ],
+            84: [
+                { id: 'cross2', pattern: '010000', source: 'steve', trial: true,
+                    hint: '仅高八度 C。Brother Steve 推荐首先尝试只按第 2 孔，适用于部分传统哨笛。' },
+                { id: 'legacy', pattern: '011110', source: 'steveAsk', trial: true,
+                    hint: '仅高八度 C。教师在 Generation 及相似哨笛上使用；同时保留原版的这一孔位。' },
+                { id: 'cross2456', pattern: '010111', source: 'scott', trial: true,
+                    hint: '仅高八度 C。Scott 的第二八度替代图列出按 2、4、5、6 孔；与低八度同孔位的音准仍须分别确认。' }
+            ]
+        };
+
+        function getDFingeringChoices(pitch) {
+            const half = { id: 'half', label: '半孔', pattern: dPatterns[(pitch - 62) % 12],
+                source: pitch < 74 ? 'wfgLow' : 'wfgHigh', hint: '开孔量并非固定一半，请根据音准调整。' };
+            return [half, ...(dForkPresets[pitch] || []).map(preset => {
+                const holes = [...preset.pattern].flatMap((state, index) => state === '1' ? [index + 1] : []).join('、');
+                return { ...preset, label: `叉指：按第 ${holes} 孔${preset.trial ? '（需试音）' : ''}` };
+            })];
+        }
+
+        function getDFingeringHint(pitch, selected, choices, pattern) {
+            if (selected === 'custom') return '个人指法，请以实际试音为准。';
+            const choice = choices.find(item => selected === 'default' ? item.pattern === pattern : item.id === selected);
+            const sources = [choice?.source, ...(choice?.alsoSources || [])]
+                .map(id => dFingeringSources[id]).filter(Boolean);
+            const availability = choices.length === 1
+                ? (pitch === 65 ? '低八度 F 尚无本次核验的全孔叉指预设；高八度 F 的试验指法不能直接套用。' : '此音尚无本次核验的全孔叉指预设，保留半孔和自定义。') : '';
+            return `${escapeHtml(choice?.hint || '')} ${availability}${sources.length
+                ? `<div class="setting-source">来源：${sources.map(source => `<a href="${source.url}" target="_blank" rel="noopener noreferrer">${escapeHtml(source.label)}</a>`).join('；')}</div>` : ''}`;
+        }
+
+        function getDefaultDPattern(pitch, basic) {
+            if (pitch === 72 && basic === '5') return '011000';
+            if (pitch === 84 && basic === '5') return '011110';
+            if (pitch === 86 || pitch === 74) return '011111';
+            return dPatterns[(pitch - 62) % 12];
+        }
+
+        function getSelectedDPattern(pitch, basic, settings = dFingeringSettings) {
+            const setting = settings[pitch];
+            if (!setting) return getDefaultDPattern(pitch, basic);
+            if (setting.method === 'custom') return setting.pattern;
+            return getDFingeringChoices(pitch).find(choice => choice.id === setting.method)?.pattern
+                || getDefaultDPattern(pitch, basic);
+        }
+
+        function validateDSettings(settings) {
+            if (!settings || typeof settings !== 'object' || Array.isArray(settings)) {
+                throw new Error('D 调指法设置格式不正确');
+            }
+            const validated = {};
+            for (const [pitchText, setting] of Object.entries(settings)) {
+                const pitch = Number(pitchText);
+                if (!chromaticPitches.includes(pitch) || !setting || typeof setting !== 'object') {
+                    throw new Error('D 调指法设置含有未知音高');
+                }
+                if (setting.method === 'custom') {
+                    if (typeof setting.pattern !== 'string' || !/^[012]{6}$/.test(setting.pattern)) throw new Error('自定义指法必须包含六个有效孔位');
+                    validated[pitch] = { method: 'custom', pattern: setting.pattern };
+                } else {
+                    const choice = getDFingeringChoices(pitch).find(item => item.id === setting.method);
+                    if (!choice) throw new Error('D 调指法设置含有未知指法');
+                    validated[pitch] = { method: choice.id, pattern: choice.pattern };
+                }
+            }
+            return validated;
+        }
+
+        function parseDNote(text, basic) {
+            const normalized = text.replace(/♯|＃/g, '#').replace(/♭/g, 'b')
+                .replace(/♮/g, 'n').replace(/[’′]/g, "'");
+            const match = /^([#bn]?)([1-7])('+|\.+)?(·)?$/.exec(normalized);
+            if (!match) return null;
+            const octave = match[3]?.startsWith("'") ? match[3].length : -(match[3]?.length || 0);
+            const accidental = match[1] === '#' ? 1 : match[1] === 'b' ? -1 : 0;
+            const pitch = getDBasicMode(basic).tonic + dScaleSteps[Number(match[2]) - 1] + octave * 12 + accidental;
+            const label = (match[1] === '#' ? '♯' : match[1] === 'b' ? '♭' : match[1] === 'n' ? '♮' : '')
+                + match[2] + (match[3] || '') + (match[4] || '');
+            return { pitch, label, pattern: pitch >= 62 && pitch <= 86 ? getSelectedDPattern(pitch, basic) : null };
+        }
+
+        // 连写音符、附点、小节线和延长线均完整解析；不把错误片段截成有效音符。
+        function tokenizeDJianpu(text) {
+            return text.trim().split(/\s+/).flatMap(chunk => {
+                const expression = /(?:[#b♯♭♮n＃]?[1-7](?:['’′]+|\.+)?·?|0|\||-)/gy;
+                const tokens = [];
+                let position = 0;
+                while (position < chunk.length) {
+                    expression.lastIndex = position;
+                    const match = expression.exec(chunk);
+                    if (!match) return [{ text: chunk, invalid: true }];
+                    tokens.push({ text: match[0], invalid: false });
+                    position = expression.lastIndex;
+                }
+                return tokens;
+            });
+        }
+
+        // 只改八度后缀，保持升降号、附点、连写与原排版；先整体验证，避免只改半份曲谱。
+        function transposeJianpuOctave(text, direction) {
+            if (direction !== 1 && direction !== -1) throw new Error('八度方向无效');
+            const tokens = tokenizeDJianpu(text);
+            const invalid = tokens.find(token => token.invalid);
+            if (invalid) throw new Error(`无法识别“${invalid.text}”，请修正后再调整八度`);
+            if (!tokens.some(token => /[1-7]/.test(token.text))) throw new Error('请先输入至少一个有效音符');
+            return text.replace(/\S+/g, chunk => tokenizeDJianpu(chunk).map(token => {
+                const match = /^([#b♯♭♮n＃]?)([1-7])(['’′]+|\.+)?(·)?$/.exec(token.text);
+                if (!match) return token.text;
+                const marks = match[3] || '';
+                const octave = (marks.startsWith('.') ? -marks.length : marks.length) + direction;
+                const prime = marks && !marks.startsWith('.') ? marks[0] : "'";
+                return match[1] + match[2] + (octave < 0 ? '.'.repeat(-octave) : prime.repeat(octave)) + (match[4] || '');
+            }).join(''));
+        }
+
+        function positionedJianpuTokens(text) {
+            const tokens = [];
+            for (const chunk of text.matchAll(/\S+/g)) {
+                let start = chunk.index;
+                for (const token of tokenizeDJianpu(chunk[0])) {
+                    const end = start + token.text.length;
+                    tokens.push({ ...token, start, end, isNote: !token.invalid && /^[#b♯♭♮n＃]?[1-7]/.test(token.text) });
+                    start = end;
+                }
+            }
+            return tokens;
+        }
+
+        function validateNoteModes(modes, text) {
+            if (!Array.isArray(modes)) throw new Error('局部筒音设置必须是音符列表');
+            const notes = new Map(positionedJianpuTokens(text).filter(token => token.isNote).map(token => [token.start, token]));
+            let previousEnd = -1;
+            return modes.map(mode => {
+                const note = notes.get(mode?.start);
+                if (!mode || !Number.isInteger(mode.start) || !Number.isInteger(mode.end)
+                    || !note || note.end !== mode.end || mode.start < previousEnd
+                    || typeof mode.basic !== 'string' || !Object.hasOwn(dBasicModes, mode.basic)) {
+                    throw new Error('局部筒音设置含有无效音符位置或筒音');
+                }
+                previousEnd = mode.end;
+                return { start: mode.start, end: mode.end, basic: mode.basic };
+            });
+        }
+
+        function remapNoteModes(modes, before, after, preserveNoteOrder = false, edit = null) {
+            if (before === after) return modes.map(mode => ({ ...mode }));
+            const nextNotes = positionedJianpuTokens(after).filter(token => token.isNote);
+            if (preserveNoteOrder) {
+                const previousNotes = positionedJianpuTokens(before).filter(token => token.isNote);
+                if (previousNotes.length !== nextNotes.length) throw new Error('音符数量改变，无法保留局部筒音');
+                const positions = new Map(previousNotes.map((note, index) => [note.start, nextNotes[index]]));
+                return modes.map(mode => ({ start: positions.get(mode.start).start, end: positions.get(mode.start).end, basic: mode.basic }));
+            }
+            const delta = after.length - before.length;
+            let from = 0, oldEnd = before.length, newEnd = after.length;
+            let editStart = edit?.start, editEnd = edit?.end;
+            if (editStart === editEnd && delta < 0 && edit?.inputType?.startsWith('delete')) {
+                if (edit.inputType.endsWith('Backward')) editStart += delta;
+                else if (edit.inputType.endsWith('Forward')) editEnd -= delta;
+            }
+            const insertedLength = delta + editEnd - editStart;
+            const exactEdit = Number.isInteger(editStart) && Number.isInteger(editEnd) && editStart >= 0
+                && editStart <= editEnd && editEnd <= before.length && insertedLength >= 0
+                && before.slice(0, editStart) === after.slice(0, editStart)
+                && before.slice(editEnd) === after.slice(editStart + insertedLength);
+            if (exactEdit) { from = editStart; oldEnd = editEnd; newEnd = from + insertedLength; }
+            else {
+                while (from < before.length && from < after.length && before[from] === after[from]) from++;
+                while (oldEnd > from && newEnd > from && before[oldEnd - 1] === after[newEnd - 1]) { oldEnd--; newEnd--; }
+            }
+            const notes = new Map(nextNotes.map(note => [note.start, note]));
+            return modes.flatMap(mode => {
+                const candidates = [];
+                if (mode.end <= from) candidates.push([mode.start, mode.end]);
+                if (mode.start >= oldEnd) candidates.push([mode.start + delta, mode.end + delta]);
+                if (mode.start <= from && mode.end >= oldEnd) candidates.push([mode.start, mode.end + delta]);
+                const match = candidates.find(([start, end]) => notes.get(start)?.end === end);
+                return match ? [{ start: match[0], end: match[1], basic: mode.basic }] : [];
+            });
+        }
+
+        function synchronizeNoteModes(edit = null) {
+            if (modeText === jianpuInput.value) return;
+            dNoteModes = remapNoteModes(dNoteModes, modeText, jianpuInput.value, false, edit);
+            modeText = jianpuInput.value;
+        }
+
+        function replaceSheetRange(start, end, segment, preserveNoteOrder = false) {
+            synchronizeNoteModes();
+            const before = jianpuInput.value;
+            const after = before.slice(0, start) + segment + before.slice(end);
+            const modes = remapNoteModes(dNoteModes, before, after, preserveNoteOrder,
+                { start, end, inputType: 'insertReplacementText' });
+            if (preserveNoteOrder && scoreAnchor) {
+                const previous = positionedJianpuTokens(before);
+                const next = positionedJianpuTokens(after);
+                const index = previous.findIndex(token => token.start === scoreAnchor.start && token.end === scoreAnchor.end);
+                if (index >= 0 && next[index]) scoreAnchor = { start: next[index].start, end: next[index].end };
+            }
+            jianpuInput.setRangeText(segment, start, end, 'select');
+            dNoteModes = modes;
+            modeText = after;
+        }
+
+        // 连写简谱也按完整音符扩大选区；选区外的文本不参与变换。
+        function selectedJianpuRange(text, start, end) {
+            if (!Number.isInteger(start) || !Number.isInteger(end) || start < 0 || end > text.length || start > end) {
+                throw new Error('选区无效，请重新选择要调整的片段');
+            }
+            if (start === end) throw new Error('请先在简谱输入框或下方谱面中选中要调整的片段');
+            const selected = positionedJianpuTokens(text).filter(token => token.start < end && token.end > start);
+            const invalid = selected.find(token => token.invalid);
+            if (invalid) throw new Error(`所选片段中无法识别“${invalid.text}”，请修正后再修改所选片段`);
+            const noteCount = selected.filter(token => token.isNote).length;
+            if (!noteCount) throw new Error('所选片段没有音符，请选中至少一个完整音符');
+            const rangeStart = Math.min(start, selected[0].start);
+            const rangeEnd = Math.max(end, selected[selected.length - 1].end);
+            return { start: rangeStart, end: rangeEnd, tokens: selected, noteCount,
+                expanded: rangeStart !== start || rangeEnd !== end };
+        }
+
+        function transposeSelectedJianpuOctave(text, start, end, direction) {
+            if (direction !== 1 && direction !== -1) throw new Error('八度方向无效');
+            const range = selectedJianpuRange(text, start, end);
+            return { ...range, segment: transposeJianpuOctave(text.slice(range.start, range.end), direction) };
+        }
+
+        function activeJianpuSelection() {
+            if (selectionSource === 'score') {
+                if (renderedJianpuText !== jianpuInput.value) throw new Error('输入简谱已改变，请先生成新谱再从谱面选择');
+                if (!scoreSelection) throw new Error('请先在下方谱面选中音符');
+                return scoreSelection;
+            }
+            return { start: jianpuInput.selectionStart, end: jianpuInput.selectionEnd };
+        }
+
+        function updateScoreSelection() {
+            whistleOutput.querySelectorAll('[data-source-start]').forEach(element => {
+                const selected = selectionSource === 'score' && scoreSelection
+                    && Number(element.dataset.sourceStart) < scoreSelection.end && Number(element.dataset.sourceEnd) > scoreSelection.start;
+                element.classList.toggle('selected', Boolean(selected));
+                element.setAttribute('aria-pressed', String(Boolean(selected)));
+            });
+            const count = scoreSelection ? positionedJianpuTokens(jianpuInput.value)
+                .filter(token => token.isNote && token.start < scoreSelection.end && token.end > scoreSelection.start).length : 0;
+            document.getElementById('score-selection-status').textContent = selectionSource === 'score' && scoreSelection
+                ? `已从谱面选中 ${count} 个音符，可更改筒音或升降八度。` : '尚未选中谱面音符。也可使用输入框选区。';
+        }
+
+        function clearScoreSelection() {
+            closeScoreNoteEditor();
+            scoreSelection = null;
+            scoreAnchor = null;
+            selectionSource = 'input';
+            updateScoreSelection();
+        }
+
+        function selectScoreToken(start, end, extend = false) {
+            if (renderedJianpuText !== jianpuInput.value) {
+                document.getElementById('score-selection-status').textContent = '输入简谱已改变，请先生成新谱再从谱面选择。';
+                return false;
+            }
+            if (scoreNoteEdit && (extend || start !== scoreNoteEdit.start || end !== scoreNoteEdit.end)) closeScoreNoteEditor();
+            if (!extend || !scoreAnchor) scoreAnchor = { start, end };
+            scoreSelection = { start: Math.min(scoreAnchor.start, start), end: Math.max(scoreAnchor.end, end) };
+            selectionSource = 'score';
+            updateScoreSelection();
+            return true;
+        }
+
+        function editableScoreNote(value) {
+            const text = value.trim();
+            const tokens = positionedJianpuTokens(text);
+            if (tokens.length !== 1 || tokens[0].text !== text || (!tokens[0].isNote && text !== '0')) {
+                throw new Error('请输入一个完整音符，例如 1、2、7.、#4\'，或休止符 0；暂时保留上一个有效音符。');
+            }
+            return tokens[0];
+        }
+
+        function closeScoreNoteEditor(focusNote = false) {
+            const start = scoreNoteEdit?.start;
+            scoreNoteEdit = null;
+            document.getElementById('score-note-editor').hidden = true;
+            if (focusNote && start !== undefined) whistleOutput.querySelector(`[data-source-start="${start}"]`)?.focus();
+        }
+
+        function beginScoreNoteEdit(start, end) {
+            try {
+                if (whistleKey.value !== 'D') throw new Error('谱面单音微调目前适用于 D 调哨笛');
+                if (renderedJianpuText !== jianpuInput.value) throw new Error('输入简谱已改变，请先生成新谱再编辑音符');
+                const token = positionedJianpuTokens(jianpuInput.value).find(note => note.start === start && note.end === end);
+                if (!token || (!token.isNote && token.text !== '0')) throw new Error('请选中一个音符或休止符 0，再编辑；小节线和延长线不能作为单音修改。');
+                closeScoreNoteEditor();
+                synchronizeNoteModes();
+                selectScoreToken(start, end);
+                const originalMode = dNoteModes.find(mode => mode.start === start);
+                scoreNoteEdit = { start, end, original: token.text, current: token.text,
+                    originalMode: originalMode ? { ...originalMode } : null, expectedText: jianpuInput.value };
+                document.getElementById('score-note-editor').hidden = false;
+                const input = document.getElementById('score-note-input');
+                input.value = token.text;
+                document.getElementById('score-note-status').textContent = `正在编辑 ${token.text}${token.isNote ? '（筒音 ' + (originalMode?.basic || whistleBasic.value) + '）' : ''}，输入有效音符后立即更新。`;
+                input.focus();
+                input.select();
+                return true;
+            } catch (error) {
+                document.getElementById('score-selection-status').textContent = error.message;
+                return false;
+            }
+        }
+
+        function updateScoreNote(value) {
+            const status = document.getElementById('score-note-status');
+            try {
+                if (!scoreNoteEdit) throw new Error('请先双击谱面上的一个音符');
+                const edit = scoreNoteEdit;
+                if (edit.expectedText !== jianpuInput.value || renderedJianpuText !== jianpuInput.value) {
+                    throw new Error('简谱内容已改变，请重新生成并双击要编辑的音符。');
+                }
+                const token = editableScoreNote(value);
+                if (token.text !== edit.current) {
+                    replaceSheetRange(edit.start, edit.end, token.text);
+                    edit.end = edit.start + token.text.length;
+                    // 音符暂时改为休止符再改回来时，仍保留本次编辑开始时的局部筒音。
+                    dNoteModes = dNoteModes.filter(mode => mode.start !== edit.start);
+                    if (token.isNote && edit.originalMode) dNoteModes.push({ start: edit.start, end: edit.end, basic: edit.originalMode.basic });
+                    dNoteModes.sort((left, right) => left.start - right.start);
+                    edit.current = token.text;
+                    edit.expectedText = jianpuInput.value;
+                    scoreSelection = { start: edit.start, end: edit.end };
+                    scoreAnchor = { ...scoreSelection };
+                    selectionSource = 'score';
+                    generateBtnClick();
+                }
+                const note = token.isNote ? parseDNote(token.text, edit.originalMode?.basic || whistleBasic.value) : null;
+                status.textContent = `当前音 ${token.text}，上方简谱与下方谱面已同步。${note && !note.pattern ? '该音超出 D 调常用音域，谱面已标出；可继续修改。' : ''}`;
+                document.getElementById('score-selection-status').textContent = `正在微调 ${edit.original} → ${token.text}。`;
+                return true;
+            } catch (error) {
+                status.textContent = error.message;
+                return false;
+            }
+        }
+
+        function finishScoreNoteEdit(cancel = false) {
+            if (!scoreNoteEdit) return false;
+            if (!updateScoreNote(cancel ? scoreNoteEdit.original : document.getElementById('score-note-input').value)) return false;
+            closeScoreNoteEditor(true);
+            document.getElementById('score-selection-status').textContent = cancel
+                ? '已撤销本次单音修改，恢复原音；其他音符保持原样。' : '单音微调已完成并保存，可继续双击其他音符。';
+            return true;
+        }
+
+        function applySelectedBasic(basic) {
+            closeScoreNoteEditor();
+            const status = document.getElementById('local-basic-status');
+            try {
+                if (whistleKey.value !== 'D') throw new Error('局部筒音目前适用于 D 调哨笛');
+                if (basic !== 'default') getDBasicMode(basic);
+                synchronizeNoteModes();
+                const selection = activeJianpuSelection();
+                const range = selectedJianpuRange(jianpuInput.value, selection.start, selection.end);
+                const selectedNotes = range.tokens.filter(token => token.isNote);
+                const starts = new Set(selectedNotes.map(token => token.start));
+                dNoteModes = dNoteModes.filter(mode => !starts.has(mode.start));
+                if (basic !== 'default') dNoteModes.push(...selectedNotes.map(token => ({ start: token.start, end: token.end, basic })));
+                dNoteModes.sort((left, right) => left.start - right.start);
+                if (selectionSource === 'score') scoreSelection = { start: range.start, end: range.end };
+                generateBtnClick();
+                const outside = selectedNotes.filter(token => !parseDNote(token.text, basic === 'default' ? whistleBasic.value : basic).pattern).length;
+                const message = `已将选中的 ${range.noteCount} 个音${basic === 'default' ? '恢复为跟随整谱筒音' : '改为筒音 ' + basic}，简谱数字保留。`
+                    + (outside ? `其中 ${outside} 个音超出 D 调常用音域，谱面已标出。` : '');
+                status.textContent = message;
+                document.getElementById('score-selection-status').textContent = message;
+            } catch (error) {
+                status.textContent = error.message;
+                document.getElementById('score-selection-status').textContent = error.message;
+            }
+        }
+
+        function changeSheetOctave(direction, selectionOnly = false) {
+            closeScoreNoteEditor();
+            const status = document.getElementById('octave-status');
+            try {
+                synchronizeNoteModes();
+                const source = selectionSource;
+                let changedRange;
+                let description;
+                if (selectionOnly) {
+                    const selection = activeJianpuSelection();
+                    const result = transposeSelectedJianpuOctave(jianpuInput.value,
+                        selection.start, selection.end, direction);
+                    replaceSheetRange(result.start, result.end, result.segment, true);
+                    changedRange = { start: result.start, end: result.start + result.segment.length };
+                    if (source === 'score') scoreSelection = changedRange;
+                    description = `已将选中的 ${result.noteCount} 个音${direction > 0 ? '升高' : '降低'}一个八度，其余段落保持原样。${result.expanded
+                        ? '边缘音符已按完整音符调整。' : ''}`;
+                } else {
+                    const segment = transposeJianpuOctave(jianpuInput.value, direction);
+                    replaceSheetRange(0, jianpuInput.value.length, segment, true);
+                    changedRange = { start: 0, end: segment.length };
+                    clearScoreSelection();
+                    description = `已整体${direction > 0 ? '升高' : '降低'}一个八度。`;
+                }
+                generateBtnClick();
+                if (selectionOnly && source === 'input') jianpuInput.focus();
+                const outside = whistleKey.value === 'D' ? positionedJianpuTokens(jianpuInput.value).filter(token => {
+                    if (!token.isNote || token.start >= changedRange.end || token.end <= changedRange.start) return false;
+                    const note = parseDNote(token.text, dNoteModes.find(mode => mode.start === token.start)?.basic || whistleBasic.value);
+                    return note && !note.pattern;
+                }).length : 0;
+                status.textContent = description + (outside
+                    ? `有 ${outside} 个音超出 D 调常用音域，可反向调整；曲谱中已标出。` : '可点击反向按钮还原音高。');
+                document.getElementById('score-selection-status').textContent = status.textContent;
+            } catch (error) {
+                status.textContent = error.message;
+                document.getElementById('score-selection-status').textContent = error.message;
+            }
+        }
+
+        function previewPreferredDFingerings(method) {
+            let replaced = 0;
+            const unavailable = [];
+            for (const pitch of chromaticPitches) {
+                if (method === 'half') {
+                    draftDFingeringSettings[pitch] = { method: 'half' };
+                    continue;
+                }
+                if (draftDFingeringSettings[pitch]?.method === 'custom') continue;
+                const current = getSelectedDPattern(pitch, whistleBasic.value, draftDFingeringSettings);
+                if (!current.includes('2')) continue;
+                const fork = getDFingeringChoices(pitch).find(choice => choice.id !== 'half');
+                if (fork) {
+                    draftDFingeringSettings[pitch] = { method: fork.id, pattern: fork.pattern };
+                    replaced++;
+                } else unavailable.push(getDPitchName(pitch));
+            }
+            renderDSettings();
+            document.getElementById('settings-status').textContent = method === 'half'
+                ? '全部半孔已载入预览；点击“应用指法设置”后生效。'
+                : `已为 ${replaced} 个音预览叉指，保留已选叉指和自定义。${unavailable.length
+                    ? `${unavailable.join('、')} 暂无明确的全孔叉指，仍保留半孔。` : ''}请先试音，点击“应用指法设置”后生效。`;
+        }
+
+        // SVG 用实际图形绘制半孔，打印时关闭背景图形也能保留半黑圆。
+        function renderDHole(state, extraClass = '') {
+            const fill = state === '1' ? '#333' : '#fff';
+            const half = state === '2' ? '<path d="M8 .5 A7.5 7.5 0 0 0 8 15.5 Z" fill="#333"/>' : '';
+            return `<svg class="hole d-hole ${extraClass}" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="7.5" fill="${fill}"/>${half}<circle cx="8" cy="8" r="7.5" fill="none" stroke="#333" stroke-width="1"/></svg>`;
+        }
+
+        function createDVerticalNote(note) {
+            const holes = [...note.pattern].map(state => renderDHole(state)).join('');
+            const holeDescription = [...note.pattern].map((state, index) => `第${index + 1}孔${halfHoleNames[state]}`).join('，');
+            const breath = note.pitch >= 86 ? '顶端 D，气息及响应因哨笛而异' : note.pitch >= 74 ? '高八度，使用更快的气流' : '低八度，轻吹';
+            return `<div class="note d-note" data-pitch="${note.pitch}" data-fingering="${note.pattern}" title="${escapeHtml(breath)}">
+                <div class="note-label">${escapeHtml(note.label)}</div>
+                <div class="note-pitch">${getDPitchName(note.pitch)}</div>
+                <div class="note-holes" role="img" aria-label="${escapeHtml(holeDescription)}">${holes}</div>
+                <div class="note-breath" aria-label="${escapeHtml(breath)}">${note.pitch >= 86 ? '++' : note.pitch >= 74 ? '+' : ''}</div>
+            </div>`;
+        }
+
+        function convertDJianpuToWhistle(text, basic, modes = []) {
+            const localModes = new Map(modes.map(mode => [mode.start, mode.basic]));
+            let previousBasic = null;
+            let previousLocal = false;
+            return positionedJianpuTokens(text).map(token => {
+                const local = localModes.has(token.start);
+                const noteBasic = localModes.get(token.start) || basic;
+                let content;
+                if (token.invalid) content = createNoMappingNote(token.text, '无法识别');
+                else if (token.text === '|') content = '<div class="special-symbol"> | </div>';
+                else if (token.text === '-') content = '<div class="special-symbol"> — </div>';
+                else if (token.text === '0') content = '<div class="note"><div class="note-label">0</div></div>';
+                else {
+                    const note = parseDNote(token.text, noteBasic);
+                    content = note?.pattern ? createDVerticalNote(note) : createNoMappingNote(token.text,
+                        `超出 D 调常用音域，当前筒音最低 ${getDBasicMode(noteBasic).lowest} = D4`);
+                    const marker = noteBasic !== previousBasic || local !== previousLocal
+                        ? `筒音 ${noteBasic}${local ? ' · 局部' : ''}` : '';
+                    content = `<span class="tube-label"${marker ? '' : ' aria-hidden="true"'}>${marker}</span>` + content;
+                    previousBasic = noteBasic;
+                    previousLocal = local;
+                }
+                const label = `简谱 ${token.text}${token.isNote ? '，筒音 ' + noteBasic : ''}，点击选择，Shift 点击扩展选区${token.isNote || token.text === '0' ? '，双击或 F2 编辑此音' : ''}`;
+                return `<div class="score-token" data-source-start="${token.start}" data-source-end="${token.end}"${token.isNote ? ` data-basic="${noteBasic}"` : ''} role="button" tabindex="0" aria-pressed="false" aria-label="${escapeHtml(label)}">${content}</div>`;
+            }).join('');
+        }
+
+        function referenceDNote(pitch, basic, settings = dFingeringSettings) {
+            return { pitch, label: formatDJianpuPitch(pitch, basic).replace('#', '♯').replace('b', '♭'),
+                pattern: getSelectedDPattern(pitch, basic, settings) };
+        }
+
+        function renderDSettings() {
+            const basic = whistleBasic.value;
+            const modeHint = basic === '3'
+                ? '筒音 3：4. / 5. / 1 / 2 及对应高八度，虽然不带升降号，也可在下面选择吹法。'
+                : basic === '4' ? '筒音 4：7. / 7 对应 G♯，可分别选择低、高八度叉指；其他半音也列在下面。'
+                : `当前筒音 ${basic}：按下方简谱标记选择对应音的吹法。`;
+            document.getElementById('d-settings-mode-hint').textContent = modeHint + ' 每个菜单只列该八度的预设，切换筒音后按实际音高保留已选指法。';
+            const covered = chromaticPitches.filter(pitch => dForkPresets[pitch]?.length);
+            const missing = chromaticPitches.filter(pitch => !dForkPresets[pitch]?.length).map(getDPitchName);
+            const presetCount = Object.values(dForkPresets).reduce((total, presets) => total + presets.length, 0);
+            document.getElementById('d-fork-coverage').textContent = `已整理 ${presetCount} 种叉指预设，覆盖 ${covered.length} / ${chromaticPitches.length} 个半音及八度组合。${missing.join('、')} 尚无本次核验的全孔叉指，保留半孔与自定义。`;
+            document.getElementById('d-settings-grid').innerHTML = chromaticPitches.map(pitch => {
+                const selected = draftDFingeringSettings[pitch]?.method || 'default';
+                const note = referenceDNote(pitch, whistleBasic.value, draftDFingeringSettings);
+                const choices = getDFingeringChoices(pitch);
+                const defaultLabel = whistleBasic.value === '5' && (pitch === 72 || pitch === 84) ? '默认（原版叉指）' : '默认（半孔）';
+                const options = [{ id: 'default', label: defaultLabel }, ...choices, { id: 'custom', label: '自定义六孔指法' }]
+                    .map(choice => `<option value="${choice.id}"${choice.id === selected ? ' selected' : ''}>${choice.label}</option>`).join('');
+                const customButtons = [...note.pattern].map((state, index) => `<button type="button" data-custom-pitch="${pitch}" data-hole="${index}" aria-label="${getDPitchName(pitch)} 第${index + 1}孔${halfHoleNames[state]}，点击切换">${index + 1}${renderDHole(state)}</button>`).join('');
+                return `<div class="setting-card"><div class="setting-body">
+                    <label for="fingering-${pitch}">${getDPitchName(pitch)} · ${pitch < 74 ? '低八度' : '高八度'}</label>
+                    <div class="setting-hint">筒音 ${basic} · 简谱 ${escapeHtml(note.label)} · ${choices.length - 1} 种叉指预设</div>
+                    <select id="fingering-${pitch}" data-fingering-pitch="${pitch}">${options}</select>
+                    <div class="custom-holes"${selected === 'custom' ? '' : ' hidden'}>${customButtons}</div>
+                    <div class="setting-hint">${getDFingeringHint(pitch, selected, choices, note.pattern)}</div>
+                    </div>${createDVerticalNote(note)}</div>`;
+            }).join('');
+        }
+
+        function updateDControls() {
+            const isD = whistleKey.value === 'D';
+            ['d-basic-3', 'd-basic-4'].forEach(id => {
+                document.getElementById(id).hidden = !isD;
+                document.getElementById(id).disabled = !isD;
+            });
+            if (!isD && ['3', '4'].includes(whistleBasic.value)) whistleBasic.value = '1';
+            ['d-chromatic-tools', 'd-chromatic-help', 'd-fingering-settings', 'd-sheet-legend', 'local-basic-tools', 'score-toolbar']
+                .forEach(id => { document.getElementById(id).hidden = !isD; });
+            if (!isD) return;
+            const mode = getDBasicMode(whistleBasic.value);
+            document.getElementById('d-basic-help').textContent = `当前筒音 ${whistleBasic.value}：中音 1 = ${getDPitchName(mode.tonic)}，全按最低 ${mode.lowest} = D4。筒音 3 / 4 可记低音 3 / 4；这是简谱调式转换，最低实际音仍是 D。`;
+            document.getElementById('d-fingering-reference').innerHTML = chromaticPitches
+                .map(pitch => createDVerticalNote(referenceDNote(pitch, whistleBasic.value))).join('');
+            const localBasics = [...new Set(dNoteModes.map(note => note.basic))];
+            document.getElementById('d-sheet-legend').innerHTML = `默认筒音 ${whistleBasic.value}，全按最低 ${mode.lowest} = D4。${localBasics.length ? '本谱含局部筒音 ' + localBasics.join(' / ') + '，切换处已标注；每段按自己的筒音计算。' : ''}孔位从上到下对应吹嘴到笛尾：${renderDHole('1', 'legend-hole')}全按 ${renderDHole('0', 'legend-hole')}全开 ${renderDHole('2', 'legend-hole')}半孔；+ 高八度，++ 顶端 D。半孔开度和气息需按实际哨笛调整。`;
+            renderDSettings();
+        }
+
+        function insertJianpu(text) {
+            const start = jianpuInput.selectionStart;
+            const end = jianpuInput.selectionEnd;
+            jianpuInput.setRangeText(text, start, end, 'end');
+            synchronizeNoteModes({ start, end, inputType: 'insertText' });
+            clearScoreSelection();
+            jianpuInput.focus();
+        }
+
+        document.getElementById('insert-sharp').addEventListener('click', () => insertJianpu('#'));
+        document.getElementById('octave-up').addEventListener('click', () => changeSheetOctave(1));
+        document.getElementById('octave-down').addEventListener('click', () => changeSheetOctave(-1));
+        document.getElementById('selected-octave-up').addEventListener('click', () => changeSheetOctave(1, true));
+        document.getElementById('selected-octave-down').addEventListener('click', () => changeSheetOctave(-1, true));
+        jianpuInput.addEventListener('beforeinput', event => {
+            pendingJianpuEdit = { start: jianpuInput.selectionStart, end: jianpuInput.selectionEnd,
+                inputType: event.inputType, before: jianpuInput.value };
+        });
+        jianpuInput.addEventListener('input', () => {
+            synchronizeNoteModes(pendingJianpuEdit?.before === modeText ? pendingJianpuEdit : null);
+            pendingJianpuEdit = null;
+            clearScoreSelection();
+            document.getElementById('octave-status').textContent = '';
+            document.getElementById('local-basic-status').textContent = '';
+        });
+        jianpuInput.addEventListener('focus', clearScoreSelection);
+        document.getElementById('apply-selected-basic').addEventListener('click', () => applySelectedBasic(document.getElementById('selected-basic').value));
+        document.getElementById('apply-score-basic').addEventListener('click', () => applySelectedBasic(document.getElementById('score-basic').value));
+        document.getElementById('score-octave-up').addEventListener('click', () => changeSheetOctave(1, true));
+        document.getElementById('score-octave-down').addEventListener('click', () => changeSheetOctave(-1, true));
+        document.getElementById('clear-score-selection').addEventListener('click', () => {
+            clearScoreSelection();
+            jianpuInput.selectionEnd = jianpuInput.selectionStart;
+        });
+        document.getElementById('edit-score-note').addEventListener('click', () => {
+            try {
+                const selection = activeJianpuSelection();
+                const tokens = positionedJianpuTokens(jianpuInput.value).filter(token => token.start < selection.end && token.end > selection.start);
+                const notes = tokens.filter(token => token.isNote || token.text === '0');
+                if (selection.start === selection.end || notes.length !== 1 || tokens.some(token => token.invalid)) {
+                    throw new Error('请只选中一个音符或休止符 0，再点击编辑。也可直接双击音符。');
+                }
+                beginScoreNoteEdit(notes[0].start, notes[0].end);
+            } catch (error) { document.getElementById('score-selection-status').textContent = error.message; }
+        });
+        document.getElementById('score-note-input').addEventListener('input', event => {
+            if (!event.isComposing) updateScoreNote(event.target.value);
+        });
+        document.getElementById('score-note-input').addEventListener('compositionend', event => updateScoreNote(event.target.value));
+        document.getElementById('score-note-input').addEventListener('keydown', event => {
+            if (event.isComposing) return;
+            if (event.key === 'Enter' || event.key === 'Escape') {
+                event.preventDefault();
+                finishScoreNoteEdit(event.key === 'Escape');
+            }
+        });
+        document.getElementById('finish-score-note').addEventListener('click', () => finishScoreNoteEdit());
+        document.getElementById('cancel-score-note').addEventListener('click', () => finishScoreNoteEdit(true));
+        whistleOutput.addEventListener('dblclick', event => {
+            const token = event.target.closest('[data-source-start]');
+            if (!token || !whistleOutput.contains(token)) return;
+            event.preventDefault();
+            beginScoreNoteEdit(Number(token.dataset.sourceStart), Number(token.dataset.sourceEnd));
+        });
+        whistleOutput.addEventListener('pointerdown', event => {
+            if (event.button !== 0) return;
+            const token = event.target.closest('[data-source-start]');
+            if (!token || !whistleOutput.contains(token)) return;
+            scoreDragging = selectScoreToken(Number(token.dataset.sourceStart), Number(token.dataset.sourceEnd),
+                event.shiftKey || document.getElementById('score-range-mode').checked);
+        });
+        whistleOutput.addEventListener('pointerover', event => {
+            if (!scoreDragging || !(event.buttons & 1)) return;
+            const token = event.target.closest('[data-source-start]');
+            if (token && whistleOutput.contains(token)) selectScoreToken(Number(token.dataset.sourceStart), Number(token.dataset.sourceEnd), true);
+        });
+        window.addEventListener('pointerup', () => { scoreDragging = false; });
+        window.addEventListener('pointercancel', () => { scoreDragging = false; });
+        whistleOutput.addEventListener('keydown', event => {
+            if (event.key !== 'Enter' && event.key !== ' ' && event.key !== 'F2') return;
+            const token = event.target.closest('[data-source-start]');
+            if (!token || !whistleOutput.contains(token)) return;
+            event.preventDefault();
+            if (event.key === 'F2') {
+                beginScoreNoteEdit(Number(token.dataset.sourceStart), Number(token.dataset.sourceEnd));
+                return;
+            }
+            selectScoreToken(Number(token.dataset.sourceStart), Number(token.dataset.sourceEnd),
+                event.shiftKey || document.getElementById('score-range-mode').checked);
+        });
+        document.getElementById('prefer-forks').addEventListener('click', () => previewPreferredDFingerings('fork'));
+        document.getElementById('prefer-half-holes').addEventListener('click', () => previewPreferredDFingerings('half'));
+        document.getElementById('insert-flat').addEventListener('click', () => insertJianpu('b'));
+        document.getElementById('chromatic-example').addEventListener('click', () => {
+            const example = getDChromaticExample(whistleBasic.value);
+            insertJianpu('\n' + example + '\n');
+            generateBtnClick();
+        });
+        document.getElementById('d-settings-grid').addEventListener('change', event => {
+            const pitch = Number(event.target.dataset.fingeringPitch);
+            if (!chromaticPitches.includes(pitch)) return;
+            const method = event.target.value;
+            const pattern = getSelectedDPattern(pitch, whistleBasic.value, draftDFingeringSettings);
+            if (method === 'default') delete draftDFingeringSettings[pitch];
+            else draftDFingeringSettings[pitch] = { method, pattern };
+            renderDSettings();
+            document.getElementById('fingering-' + pitch).focus();
+            document.getElementById('settings-status').textContent = '正在预览；点击“应用指法设置”后更新曲谱并保存。';
+        });
+        document.getElementById('d-settings-grid').addEventListener('click', event => {
+            const button = event.target.closest('button[data-custom-pitch]');
+            if (!button) return;
+            const pitch = Number(button.dataset.customPitch);
+            const index = Number(button.dataset.hole);
+            const pattern = [...draftDFingeringSettings[pitch].pattern];
+            pattern[index] = String((Number(pattern[index]) + 1) % 3);
+            draftDFingeringSettings[pitch].pattern = pattern.join('');
+            renderDSettings();
+            document.querySelector(`[data-custom-pitch="${pitch}"][data-hole="${index}"]`).focus();
+            document.getElementById('settings-status').textContent = '正在预览自定义指法；请试音后应用。';
+        });
+        document.getElementById('apply-fingerings').addEventListener('click', () => {
+            dFingeringSettings = validateDSettings(draftDFingeringSettings);
+            let stored = true;
+            try { localStorage.setItem('TinWhistleDFingerings', JSON.stringify(dFingeringSettings)); }
+            catch { stored = false; }
+            if (jianpuInput.value.trim()) generateBtnClick();
+            else setLocalStorage();
+            updateDControls();
+            document.getElementById('settings-status').textContent = stored
+                ? '指法设置已应用并保存。' : '指法已应用；浏览器不允许本地存储，请保存曲谱 JSON。';
+        });
+        document.getElementById('reset-fingerings').addEventListener('click', () => {
+            draftDFingeringSettings = {};
+            renderDSettings();
+            document.getElementById('settings-status').textContent = '默认指法已载入预览；点击“应用指法设置”后生效。';
+        });
+        whistleKey.addEventListener('change', () => { closeScoreNoteEditor(); updateDControls(); });
+        whistleBasic.addEventListener('change', () => {
+            closeScoreNoteEditor();
+            updateDControls();
+            if (whistleKey.value === 'D' && jianpuInput.value.trim()) generateBtnClick();
+        });
+
+        // 解析简谱并转换为竖向笛谱
+        function convertJianpuToWhistle(jianpuText, key, basic, modes = []) {
+            if (!jianpuText.trim()) {
+                throw new Error('请输入有效的简谱内容');
+            }
+
+            if (key === 'D') return convertDJianpuToWhistle(jianpuText, basic, modes);
+
+            // 清理输入文本并拆分为单个元素
+            let cleanedText = jianpuText.replace(/\s+/g, ' ').trim();
+            let elements = cleanedText.split(' ');
+            let resultElements = [];
+
+            // 处理每个元素（音符或符号）
+            elements.forEach(element => {
+                if (!element) return;
+                // 匹配小节线、延长线、附点等特殊符号
+                if (element === '|') {
+                    resultElements.push(`<div class="special-symbol"> | </div>`);
+                }
+                else if (element === '-') {
+                    resultElements.push(`<div class="special-symbol"> — </div>`);
+                }
+                else if (element === '0') {
+                    resultElements.push(`
+                    <div class="note">
+                        <div class="note-label">0</div>
+                    </div>
+                    `);
+                }
+                else {
+                    const pointFlag = element.includes('·') ? true : false;
+                    const notePart = element.replace('·', '');
+                    const notePattern = /([\#\b]?[1-7])(\.|'|)?/;
+                    // 匹配普通音符
+                    const match = notePart.match(notePattern);
+                    console.log(match)
+
+                    if (match) {
+                        const noteKey = match[1] + (match[2] || '');
+                        const mapping = whistleMapping[key][basic];
+
+                        if (mapping[noteKey]) {
+                            // 生成竖向指法
+                            resultElements.push(createVerticalNote(noteKey, mapping[noteKey], pointFlag ? '·' : ''));
+                        } else {
+                            resultElements.push(createNoMappingNote(element));
+                        }
+                    } else {
+                        // 无法识别的内容
+                        resultElements.push(createNoMappingNote(element));
+                    }
+                }
+            });
+
+            return resultElements.join('');
+        }
+
+        // 创建竖向音符DOM
+        function createVerticalNote(noteKey, fingerPattern, modifier = '') {
+            // 移除气流控制标记
+            // fingerPattern = fingerPattern.replace('↑', '');
+            // 将指法字符串转为数组并反转（从上到下对应1-6孔）
+            const holes = fingerPattern.split('');
+            let holeElements = '';
+
+            // 生成每个孔的DOM
+            holes.forEach(hole => {
+                holeElements += `<div class="hole hole_${hole}"></div>`;
+            });
+
+            // 组合完整的竖向音符
+            return `
+                <div class="note">
+                    <div class="note-label">${noteKey}${modifier}</div>
+                    <div class="note-holes">${holeElements}</div>
+                </div>
+            `;
+        }
+
+        // 创建无对应指法的提示
+        function createNoMappingNote(text, reason = '无对应指法') {
+            return `<div class="no-mapping">${escapeHtml(text)}[${reason}]</div>`;
+        }
+
+        function generateBtnClick() {
+            try {
+                errorMessage.textContent = '';
+                const jianpuText = jianpuInput.value;
+                const key = whistleKey.value;
+                const basic = whistleBasic.value;
+                synchronizeNoteModes();
+                const whistleSheet = convertJianpuToWhistle(jianpuText, key, basic, dNoteModes);
+                whistleOutput.innerHTML = whistleSheet;
+                renderedJianpuText = jianpuText;
+                updateDControls();
+                updateScoreSelection();
+                setLocalStorage();
+            } catch (error) {
+                errorMessage.textContent = '错误：' + error.message;
+            }
+        }
+
+        function getSheetData() {
+            synchronizeNoteModes();
+            const data = { jianpu: jianpuInput.value, title: titleInput.value };
+            if (whistleKey.value === 'D') {
+                data.whistleKey = 'D';
+                data.whistleBasic = whistleBasic.value;
+                data.dFingeringSettings = dFingeringSettings;
+                if (dNoteModes.length) data.dNoteModes = dNoteModes.map(mode => ({ ...mode }));
+            }
+            return data;
+        }
+
+        function setLocalStorage() {
+            try { localStorage.setItem('TinWhistle', JSON.stringify(getSheetData())); }
+            catch { errorMessage.textContent = '曲谱已生成；浏览器不允许本地存储，请用“保存笛谱”保存 JSON。'; }
+        }
+
+        function restoreSheet(data) {
+            if (!data || typeof data.jianpu !== 'string' || typeof data.title !== 'string') {
+                throw new Error('曲谱 JSON 必须包含文本格式的 jianpu 和 title');
+            }
+            if (data.whistleKey === 'D' && data.whistleBasic !== undefined
+                && (typeof data.whistleBasic !== 'string' || !Object.hasOwn(dBasicModes, data.whistleBasic))) {
+                throw new Error('D 调筒音设置无效');
+            }
+            // 先验证再更新页面，错误文件不会覆盖正在编辑的曲谱或个人指法。
+            const settings = data.dFingeringSettings === undefined ? dFingeringSettings : validateDSettings(data.dFingeringSettings);
+            const modes = data.dNoteModes === undefined ? [] : validateNoteModes(data.dNoteModes, data.jianpu);
+            jianpuInput.value = data.jianpu;
+            titleInput.value = data.title;
+            if (data.whistleKey === 'D') {
+                whistleKey.value = 'D';
+                whistleBasic.value = data.whistleBasic || '1';
+            }
+            dFingeringSettings = settings;
+            draftDFingeringSettings = JSON.parse(JSON.stringify(settings));
+            dNoteModes = modes;
+            modeText = data.jianpu;
+            pendingJianpuEdit = null;
+            clearScoreSelection();
+            document.getElementById('octave-status').textContent = '';
+            document.getElementById('local-basic-status').textContent = '';
+            try { localStorage.setItem('TinWhistleDFingerings', JSON.stringify(settings)); }
+            catch { /* 曲谱仍可通过 JSON 保存。 */ }
+            document.getElementById('settings-status').textContent = '已载入指法设置；修改后请点击“应用指法设置”。';
+            updateDControls();
+        }
+        function readLocalStorage() {
+            try {
+                // 解析JSON内容
+                const jsonContent = JSON.parse(localStorage.getItem("TinWhistle"));
+                // 格式化展示（缩进2个空格）
+                // jianpuInput.value = JSON.stringify(jsonContent, null, 2);
+                restoreSheet(jsonContent);
+                generateBtnClick();
+            } catch (error) {
+                // 处理JSON解析错误
+                errorMessage.textContent = `文件解析失败：${error.message}`;
+            }
+        }
+
+        // 生成笛谱按钮点击事件
+        generateBtn.addEventListener('click', () => {
+            generateBtnClick();
+        });
+
+        //保存为本地文件
+        saveBtn.addEventListener('click', () => {
+            const data = new Blob([JSON.stringify(getSheetData(), null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(data);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `${titleInput.value}_TinWhistle_.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        });
+
+        //读取本地文件
+        readBtn.addEventListener('click', () => {
+            fileInput.click();
+        })
+
+        // 监听文件选择事件
+        fileInput.addEventListener('change', (e) => {
+            // 获取选中的文件
+            const file = e.target.files[0];
+
+            // 验证文件是否存在且是JSON类型
+            if (!file) {
+                errorMessage.textContent = '未选择文件';
+                return;
+            }
+
+            // 简单验证文件扩展名（前端验证，仅供参考）
+            if (file.name.split('.').pop().toLowerCase() !== 'json') {
+                errorMessage.textContent = '请选择JSON格式的文件！';
+                fileInput.value = ''; // 清空选择
+                return;
+            }
+
+            // 创建FileReader对象读取文件
+            const reader = new FileReader();
+
+            // 读取文件成功后的回调
+            reader.onload = function (event) {
+                try {
+                    // 解析JSON内容
+                    const jsonContent = JSON.parse(event.target.result);
+                    // 格式化展示（缩进2个空格）
+                    // jianpuInput.value = JSON.stringify(jsonContent, null, 2);
+                    restoreSheet(jsonContent);
+                    generateBtnClick();
+                } catch (error) {
+                    // 处理JSON解析错误
+                    errorMessage.textContent = `文件解析失败：${error.message}`;
+                }
+            };
+
+            // 读取文件失败的回调
+            reader.onerror = function () {
+                errorMessage.textContent = '文件读取失败，请检查文件是否可访问';
+            };
+
+            // 以文本形式读取文件
+            reader.readAsText(file);
+        });
+
+        // 清空按钮点击事件
+        clearBtn.addEventListener('click', () => {
+            jianpuInput.value = '';
+            whistleOutput.innerHTML = '';
+            errorMessage.textContent = '';
+            document.getElementById('octave-status').textContent = '';
+            document.getElementById('local-basic-status').textContent = '';
+            dNoteModes = [];
+            modeText = '';
+            pendingJianpuEdit = null;
+            renderedJianpuText = '';
+            clearScoreSelection();
+        });
+
+        // 初始化示例
+        window.addEventListener('load', () => {
+            let savedSheet = null;
+            try {
+                // 先读取曲谱；个人设置损坏时也不能用示例覆盖用户的曲谱。
+                savedSheet = localStorage.getItem('TinWhistle');
+                const savedSettings = localStorage.getItem('TinWhistleDFingerings');
+                if (savedSettings) dFingeringSettings = validateDSettings(JSON.parse(savedSettings));
+            } catch (error) {
+                document.getElementById('settings-status').textContent = '个人指法未能载入：' + error.message;
+            }
+            draftDFingeringSettings = JSON.parse(JSON.stringify(dFingeringSettings));
+            updateDControls();
+            if (savedSheet) {
+                readLocalStorage();
+            } else {
+                // 内置原版示例，直接双击 HTML 离线打开时也无需 fetch。
+                jianpuInput.value = "6 2 | 2 3 4 2 | 6 6 5 | 6 1' 7 5 | 6 2 | 2 3 4 2 | 6 6 5 | 6 4 5 3 |\n6 2 | 2 3 4 2 | 6 6 5 | 6 1' 7 5 | 6 2 | 2 3 4 2 | 6 5 4 5 | 6 1' 2' 0 |\n6 2 | 2 3 #4 2 | 6 6 5 | 6 1' 7 5 | 6 2 | 2 3 #4 2 | 6 6 5 | 6 #4 5 3 |\n6 2 | 2 3 #4 2 | 6 6 5 | 6 1' 7 5 | 6 2 | 2 3 #4 2 | 6 5 #4 2 | 3 #1 2 0 |";
+                titleInput.value = 'Kingdom Dance';
+                generateBtnClick();
+            }
+        });
+    </script>
+</body>
+
+</html>
